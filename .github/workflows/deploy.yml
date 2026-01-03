@@ -1,2 +1,24 @@
-# GitHub Actions workflow for deploying to Google Cloud Run
-# TODO: Configure deployment workflow
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config --global user.email "ishtiaksikder@gmail.com"
+          git config --global user.name "IshtiSikder"
+
+      # TODO: Add deployment steps here
+      # - Set up Google Cloud credentials
+      # - Build and push Docker image
+      # - Deploy to Cloud Run
