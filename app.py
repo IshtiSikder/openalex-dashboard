@@ -6,9 +6,17 @@ import time
 import os
 from datetime import datetime, timedelta
 import hashlib
+from dotenv import load_dotenv
+from streamlit_supabase_auth import login_form, logout_button
+from supabase import create_client, Client
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure PyAlex
-config.email = os.getenv("OPENALEX_EMAIL", "ishtiaksikder@gmail.com")  # Set your email for polite pool access
+# Supabase configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 # Rate limiting configuration
 RATE_LIMIT = 10  # requests per minute
@@ -17,11 +25,14 @@ RATE_WINDOW = 60  # seconds
 def get_client_ip():
     """
     Get client identifier for rate limiting.
-    Uses session_id as fallback for local testing.
+    Uses authenticated user ID if available, else session hash.
     """
+    if "user" in st.session_state and st.session_state.user:
+        user_id = st.session_state.user.get('id', '')
+        return hashlib.md5(user_id.encode()).hexdigest()[:15]
+
     try:
         if "client_ip" not in st.session_state:
-            # Use session ID hash as identifier
             session_id = str(id(st.session_state))
             st.session_state.client_ip = hashlib.md5(session_id.encode()).hexdigest()[:15]
         return st.session_state.client_ip
@@ -60,6 +71,21 @@ def check_rate_limit():
     st.session_state.request_history.append(now)
     return (True, RATE_LIMIT - request_count - 1, 0)
 
+def check_authentication():
+    """Display login form and return session if authenticated."""
+    session = login_form(
+        url=SUPABASE_URL,
+        apiKey=SUPABASE_ANON_KEY,
+        providers=["google", "github"],
+    )
+    return session
+
+def get_user_email(session) -> str:
+    """Extract user email from session for OpenAlex API."""
+    if session and 'user' in session:
+        return session['user'].get('email', '')
+    return os.getenv("OPENALEX_EMAIL", "noreply@example.com")
+
 # Page configuration
 st.set_page_config(
     page_title="OpenAlex Research Dashboard",
@@ -67,11 +93,26 @@ st.set_page_config(
     layout="wide"
 )
 
+# Authentication gate
+session = check_authentication()
+if not session:
+    st.stop()
+
+# Set PyAlex email from logged-in user
+user_email = get_user_email(session)
+config.email = user_email
+st.session_state.user = session['user']
+
 # Title
 st.title("📚 OpenAlex Research Dashboard")
+st.caption(f"Logged in as: {user_email}")
 
 # Sidebar for filters
 st.sidebar.header("Search & Filters")
+if st.sidebar.button("Logout", type="secondary"):
+    logout_button()
+    st.rerun()
+st.sidebar.divider()
 
 # Search query input
 search_query = st.sidebar.text_input(

@@ -79,6 +79,17 @@ echo_success "Docker image built successfully"
 # ==============================================================================
 echo_step "Step 3: Deploying to Cloud Run"
 
+# Check if Supabase secrets exist
+echo "Checking Supabase secrets..."
+for SECRET in SUPABASE_URL SUPABASE_ANON_KEY; do
+    if ! gcloud secrets describe "$SECRET" &>/dev/null 2>&1; then
+        echo_error "Secret $SECRET not found. Create it with:"
+        echo "  gcloud secrets create $SECRET --data-file=-"
+        exit 1
+    fi
+done
+echo_success "Supabase secrets found"
+
 echo "Deploying service: $SERVICE_NAME"
 echo "Region: $REGION"
 echo ""
@@ -89,7 +100,8 @@ gcloud run deploy "$SERVICE_NAME" \
     --region "$REGION" \
     --allow-unauthenticated \
     --port 8080 \
-    --memory 512Mi
+    --memory 512Mi \
+    --set-secrets "SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest"
 
 echo_success "Deployment completed successfully"
 

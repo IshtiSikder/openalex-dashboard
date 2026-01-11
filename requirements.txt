@@ -3,3 +3,6 @@ pyalex>=0.13
 plotly>=5.18.0
 pandas>=2.1.4
 requests>=2.31.0
+streamlit-supabase-auth>=1.0.2
+supabase>=2.0.0
+python-dotenv>=1.0.0

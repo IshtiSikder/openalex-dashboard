@@ -1505,3 +1505,220 @@ Transform the OpenAlex Dashboard from development prototype to production-ready 
 1. Complete manual testing (MANUAL_TESTING_CHECKLIST.txt)
 2. Provide GCP project details
 3. Approve continuation to Phase 5 (GCP Deployment Preparation)
+
+---
+
+# Login Feature Implementation Plan
+
+## Overview
+
+Add Supabase authentication with email/password and OAuth (Google/GitHub) login. Use logged-in user's email as `OPENALEX_EMAIL` for polite pool API access.
+
+**Database Decision:** Use Supabase PostgreSQL (free tier, 500MB) instead of Google Cloud SQL - no extra cost, built-in auth integration.
+
+---
+
+## Implementation To-Do List
+
+### Phase 1: Supabase Setup (Manual)
+- [ ] Create Supabase project at https://supabase.com
+- [ ] Enable Google OAuth provider
+  - [ ] Create OAuth credentials at https://console.cloud.google.com/apis/credentials
+  - [ ] Set redirect URI: `https://<project>.supabase.co/auth/v1/callback`
+  - [ ] Copy Client ID and Secret to Supabase
+- [ ] Enable GitHub OAuth provider
+  - [ ] Create OAuth App at https://github.com/settings/developers
+  - [ ] Set callback URL: `https://<project>.supabase.co/auth/v1/callback`
+  - [ ] Copy Client ID and Secret to Supabase
+- [ ] Note down `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+
+### Phase 2: Update Dependencies
+- [ ] Update `/Users/ishti/openalex-dashboard/requirements.txt`:
+  ```
+  streamlit-supabase-auth>=1.0.2
+  supabase>=2.0.0
+  python-dotenv>=1.0.0
+  ```
+- [ ] Install locally: `pip install -r requirements.txt`
+
+### Phase 3: Modify app.py
+- [ ] Add imports (after line 8):
+  ```python
+  from streamlit_supabase_auth import login_form, logout_button
+  from supabase import create_client, Client
+  ```
+- [ ] Replace line 11 (static PyAlex config) with Supabase config:
+  ```python
+  SUPABASE_URL = os.getenv("SUPABASE_URL")
+  SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+  ```
+- [ ] Add authentication functions (after `check_rate_limit()`, ~line 62):
+  ```python
+  def check_authentication():
+      session = login_form(
+          url=SUPABASE_URL,
+          apiKey=SUPABASE_ANON_KEY,
+          providers=["google", "github"],
+      )
+      return session
+
+  def get_user_email(session) -> str:
+      if session and 'user' in session:
+          return session['user'].get('email', '')
+      return os.getenv("OPENALEX_EMAIL", "noreply@example.com")
+  ```
+- [ ] Add authentication gate (after `st.set_page_config`, ~line 69):
+  ```python
+  session = check_authentication()
+  if not session:
+      st.stop()
+
+  user_email = get_user_email(session)
+  config.email = user_email
+  st.session_state.user = session['user']
+  ```
+- [ ] Modify title (~line 71):
+  ```python
+  st.title("📚 OpenAlex Research Dashboard")
+  st.caption(f"Logged in as: {user_email}")
+  ```
+- [ ] Add logout to sidebar (~line 74):
+  ```python
+  if st.sidebar.button("Logout", type="secondary"):
+      logout_button()
+      st.rerun()
+  st.sidebar.divider()
+  ```
+- [ ] Update `get_client_ip()` to use authenticated user ID
+
+### Phase 4: Create Config Files
+- [ ] Create `/Users/ishti/openalex-dashboard/.streamlit/config.toml`:
+  ```toml
+  [server]
+  enableCORS = false
+  enableXsrfProtection = true
+
+  [browser]
+  gatherUsageStats = false
+  ```
+- [ ] Update `/Users/ishti/openalex-dashboard/.env.example`:
+  ```env
+  SUPABASE_URL=https://your-project.supabase.co
+  SUPABASE_ANON_KEY=your-anon-key
+  OPENALEX_EMAIL=your-email@example.com
+  ```
+
+### Phase 5: Local Testing
+- [ ] Create `.env` file with Supabase credentials
+- [ ] Run locally: `streamlit run app.py`
+- [ ] Test email/password signup
+- [ ] Test Google OAuth login
+- [ ] Test GitHub OAuth login
+- [ ] Verify OpenAlex API uses logged-in email
+- [ ] Test logout functionality
+- [ ] Test rate limiting uses user ID
+
+### Phase 6: Cloud Deployment
+- [ ] Create GCP secrets:
+  ```bash
+  gcloud secrets create SUPABASE_URL --data-file=- <<< "https://xxx.supabase.co"
+  gcloud secrets create SUPABASE_ANON_KEY --data-file=- <<< "your-key"
+  ```
+- [ ] Update `/Users/ishti/openalex-dashboard/deploy.sh` to add secrets:
+  ```bash
+  --set-secrets "SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest"
+  ```
+- [ ] Update `/Users/ishti/openalex-dashboard/Dockerfile`:
+  - Remove hardcoded `OPENALEX_EMAIL`
+  - Add fallback: `ENV OPENALEX_EMAIL="noreply@openalex-dashboard.app"`
+- [ ] Deploy: `./deploy.sh`
+
+### Phase 7: Production Testing
+- [ ] Verify OAuth redirects work on production URL
+- [ ] Test session persists across page refresh
+- [ ] Verify rate limiting uses user ID
+- [ ] Check Cloud Run logs for errors
+- [ ] Test with multiple users
+
+---
+
+## Cookie/Session Management
+
+| Aspect | Implementation |
+|--------|----------------|
+| Token Storage | Browser localStorage (handled by streamlit-supabase-auth) |
+| Validation | Stateless JWT - works across Cloud Run instances |
+| Token Expiry | Configure 7-day refresh in Supabase dashboard |
+| Session Persistence | Survives page refresh, new tabs |
+
+---
+
+## Files Summary
+
+| File | Action | Lines Changed |
+|------|--------|---------------|
+| `requirements.txt` | Add 3 packages | +3 |
+| `app.py` | Auth gate, login, dynamic email | ~50 |
+| `deploy.sh` | Add secrets flag | ~5 |
+| `Dockerfile` | Update env vars | ~2 |
+| `.streamlit/config.toml` | Create new | 7 |
+| `.env.example` | Update | +3 |
+
+---
+
+**Plan Created**: 2026-01-11
+**Status**: Partially Implemented
+
+---
+
+## Session: 2026-01-11 - Login Feature Implementation
+
+### Completed This Session
+- [x] Created Supabase project (https://msnxwmvuwdvfwdeukgxt.supabase.co)
+- [x] Updated requirements.txt with Supabase dependencies
+- [x] Modified app.py with authentication gate, login form, logout
+- [x] Created .streamlit/config.toml
+- [x] Updated .env.example with Supabase template
+- [x] Created .env file with credentials
+- [x] Updated deploy.sh for secrets injection
+- [x] Updated Dockerfile
+- [x] Installed dependencies locally
+- [x] Added load_dotenv() to app.py
+- [x] Re-enabled OAuth providers (Google/GitHub) in app.py
+- [x] Created OAUTH_SETUP.md guide
+
+### Remaining To-Do List
+
+#### 1. Create GCP Secrets (Required for Production)
+```bash
+echo -n "https://msnxwmvuwdvfwdeukgxt.supabase.co" | gcloud secrets create SUPABASE_URL --data-file=-
+echo -n "YOUR_ANON_KEY" | gcloud secrets create SUPABASE_ANON_KEY --data-file=-
+```
+
+#### 2. Enable OAuth Providers in Supabase Dashboard
+- [ ] Enable Google OAuth (see OAUTH_SETUP.md)
+- [ ] Enable GitHub OAuth (see OAUTH_SETUP.md)
+
+#### 3. Deploy to Production
+```bash
+./deploy.sh
+```
+
+#### 4. Git Commit Changes
+```bash
+git add -A
+git commit -m "Add Supabase authentication with OAuth support"
+git push origin master --tags
+```
+
+#### 5. Test Production
+- [ ] Test email/password signup on production URL
+- [ ] Test Google OAuth (after enabling)
+- [ ] Test GitHub OAuth (after enabling)
+- [ ] Verify user email is used for OpenAlex API
+
+---
+
+**Session End**: 2026-01-11
+**Files Modified**: app.py, requirements.txt, deploy.sh, Dockerfile, .env.example
+**Files Created**: .env, .streamlit/config.toml, OAUTH_SETUP.md
