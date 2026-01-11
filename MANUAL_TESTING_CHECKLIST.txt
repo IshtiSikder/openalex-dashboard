@@ -1,0 +1,476 @@
+================================================================================
+OPENALEX DASHBOARD - MANUAL TESTING CHECKLIST
+================================================================================
+
+Created: 2026-01-06
+Purpose: Verify production-ready changes before deployment
+Estimated Time: 6-8 minutes total
+
+================================================================================
+PREREQUISITES
+================================================================================
+
+Before starting, ensure:
+[ ] You are in the project directory: /Users/ishti/openalex-dashboard
+[ ] Virtual environment is activated: source venv/bin/activate
+[ ] No other Streamlit apps running on port 8501
+[ ] Browser ready (Chrome, Firefox, or Safari)
+
+================================================================================
+TEST 1: BASIC FUNCTIONALITY
+================================================================================
+
+Estimated Time: 2 minutes
+
+OBJECTIVE: Verify the app starts and basic search works
+
+STEPS:
+------
+
+1. Start the Application
+   Terminal Command:
+   $ streamlit run app.py
+
+   Expected Output:
+   - "You can now view your Streamlit app in your browser"
+   - "Local URL: http://localhost:8501"
+   - No ERROR messages in terminal
+
+   Status: [ ] PASS  [ ] FAIL
+
+2. Open Browser
+   URL: http://localhost:8501
+
+   Expected:
+   - Page loads within 5 seconds
+   - Title: "📚 OpenAlex Research Dashboard"
+   - Welcome message visible
+   - Sidebar with search filters visible
+
+   Status: [ ] PASS  [ ] FAIL
+
+3. Perform Basic Search
+   Steps:
+   a) In sidebar, enter search query: "machine learning"
+   b) Leave year range as default (2015-2024)
+   c) Leave number of results as 10
+   d) Click "🔍 Search" button
+
+   Expected Results:
+   - Spinner appears: "Searching OpenAlex for 'machine learning'..."
+   - Results appear within 10 seconds
+   - Metrics displayed (Total Results, Citations, etc.)
+   - Results table shows papers with titles, authors, years, citations
+   - Chart displays top 10 papers
+   - Download CSV button visible
+
+   Status: [ ] PASS  [ ] FAIL
+
+4. Check Terminal Output
+   Look in terminal for:
+   - No ERROR or CRITICAL messages
+   - No Python exceptions or stack traces
+   - Clean execution
+
+   Status: [ ] PASS  [ ] FAIL
+
+5. Verify UI Elements
+   [ ] Sidebar search input responsive
+   [ ] Year range slider works
+   [ ] Number of results dropdown works
+   [ ] Search button clickable
+   [ ] Results table scrollable
+   [ ] Chart is interactive (hover shows values)
+   [ ] Download button clickable
+
+   Status: [ ] PASS  [ ] FAIL
+
+TEST 1 OVERALL: [ ] PASS  [ ] FAIL
+
+Notes/Issues:
+_____________________________________________________________________________
+_____________________________________________________________________________
+_____________________________________________________________________________
+
+
+================================================================================
+TEST 2: EMAIL CONFIGURATION
+================================================================================
+
+Estimated Time: 1 minute
+
+OBJECTIVE: Verify environment variable email configuration works
+
+STEPS:
+------
+
+1. Stop Current App
+   - Press Ctrl+C in terminal to stop Streamlit
+
+2. Set Custom Email Environment Variable
+   Terminal Command:
+   $ export OPENALEX_EMAIL="test@example.com"
+
+   Status: [ ] Command executed
+
+3. Restart Application
+   Terminal Command:
+   $ streamlit run app.py
+
+   Expected Output:
+   - App starts without errors
+   - No warnings about email configuration
+   - "You can now view your Streamlit app" message
+
+   Status: [ ] PASS  [ ] FAIL
+
+4. Verify No Email Errors
+   Check terminal for:
+   - No "email" related ERROR messages
+   - No warnings about invalid email
+   - No OpenAlex API authentication errors
+
+   Status: [ ] PASS  [ ] FAIL
+
+5. Test Search Works with Custom Email
+   In browser:
+   a) Search for: "artificial intelligence"
+   b) Verify results appear
+
+   Expected:
+   - Search works normally
+   - Results display correctly
+   - No API errors
+
+   Status: [ ] PASS  [ ] FAIL
+
+6. Test with Default Email (Fallback)
+   a) Stop app (Ctrl+C)
+   b) Unset environment variable:
+      $ unset OPENALEX_EMAIL
+   c) Restart app:
+      $ streamlit run app.py
+   d) Search for: "quantum computing"
+
+   Expected:
+   - App uses fallback email (ishtiaksikder@gmail.com)
+   - Search works normally
+   - No errors
+
+   Status: [ ] PASS  [ ] FAIL
+
+TEST 2 OVERALL: [ ] PASS  [ ] FAIL
+
+Notes/Issues:
+_____________________________________________________________________________
+_____________________________________________________________________________
+_____________________________________________________________________________
+
+
+================================================================================
+TEST 3: RATE LIMITING
+================================================================================
+
+Estimated Time: 3 minutes
+
+OBJECTIVE: Verify rate limiting prevents excessive searches
+
+IMPORTANT: This is the most critical test for production readiness!
+
+STEPS:
+------
+
+1. Prepare for Rate Limit Test
+   - Ensure app is running: streamlit run app.py
+   - Browser at: http://localhost:8501
+   - Have a timer ready (or watch the seconds)
+
+2. Make 10 Rapid Searches
+
+   Search these queries in rapid succession (click Search immediately after
+   each result appears):
+
+   Search 1:  "machine learning"        Status: [ ] Allowed
+   Search 2:  "deep learning"           Status: [ ] Allowed
+   Search 3:  "neural networks"         Status: [ ] Allowed
+   Search 4:  "artificial intelligence" Status: [ ] Allowed
+   Search 5:  "computer vision"         Status: [ ] Allowed
+   Search 6:  "natural language"        Status: [ ] Allowed
+   Search 7:  "data science"            Status: [ ] Allowed
+   Search 8:  "reinforcement learning"  Status: [ ] Allowed
+   Search 9:  "transfer learning"       Status: [ ] Allowed
+   Search 10: "supervised learning"     Status: [ ] Allowed
+
+   Expected for searches 1-10:
+   - All should work normally
+   - Results appear for each
+   - No error messages
+
+   All 10 searches allowed: [ ] YES  [ ] NO
+
+3. Attempt 11th Search (Should Be BLOCKED)
+
+   Search 11: "unsupervised learning"
+
+   Click "Search" button immediately after 10th search completes
+
+   Expected Results:
+   - RED ERROR MESSAGE appears
+   - Message text contains:
+     * "⚠️ Too many searches!"
+     * "Please wait X seconds" (X should be 1-60)
+     * "Rate limit: 10 searches per minute"
+   - NO results displayed
+   - Search is BLOCKED
+
+   Status: [ ] PASS (blocked correctly)  [ ] FAIL (allowed through)
+
+   Wait time shown: _____ seconds
+
+4. Verify Wait Time Countdown
+
+   Note the wait time from step 3: _____ seconds
+
+   Expected Behavior:
+   - Wait time should be between 1-60 seconds
+   - Based on when the 1st request expires (60 seconds after first search)
+
+   Wait time is reasonable: [ ] YES  [ ] NO
+
+5. Try Immediate Retry (Should Still Be Blocked)
+
+   Immediately click "Search" again (before wait time expires)
+
+   Expected:
+   - Still shows error message
+   - Still blocked
+   - Wait time may have decreased slightly
+
+   Status: [ ] PASS (still blocked)  [ ] FAIL (allowed)
+
+6. Wait for Rate Limit Reset
+
+   Wait for the full wait time to elapse (from step 3)
+
+   Add 2-3 extra seconds to be safe
+
+   Total wait time: _____ seconds
+
+   Status: [ ] Waited full duration
+
+7. Verify Reset - Search Should Work Again
+
+   After waiting, try another search:
+   Search: "pattern recognition"
+
+   Expected Results:
+   - Search WORKS (no error message)
+   - Results appear normally
+   - Rate limit has RESET
+   - Can make searches again
+
+   Status: [ ] PASS (reset worked)  [ ] FAIL (still blocked)
+
+8. Rapid-Fire Test (10 more searches)
+
+   Do 10 more rapid searches to verify the limit resets properly:
+
+   Expected:
+   - Can make 10 searches successfully
+   - 11th search blocked again
+   - Pattern repeats correctly
+
+   Status: [ ] PASS  [ ] FAIL
+
+TEST 3 OVERALL: [ ] PASS  [ ] FAIL
+
+Notes/Issues:
+_____________________________________________________________________________
+_____________________________________________________________________________
+_____________________________________________________________________________
+
+
+================================================================================
+ADDITIONAL TESTS (OPTIONAL)
+================================================================================
+
+TEST 4: CSV Download (Optional - 1 minute)
+-------------------------------------------
+
+1. Perform a search
+2. Click "📥 Download Results as CSV" button
+3. Check Downloads folder
+4. Open CSV file in text editor
+
+Expected:
+- File downloads successfully
+- File name: openalex_results_[query].csv
+- File contains columns: Title, Authors, Year, Citations, DOI
+- Data matches what's displayed in browser
+
+Status: [ ] PASS  [ ] FAIL  [ ] SKIPPED
+
+
+TEST 5: Empty Query Handling (Optional - 30 seconds)
+-----------------------------------------------------
+
+1. Leave search field EMPTY
+2. Click "Search" button
+
+Expected:
+- Warning message: "⚠️ Please enter a search query to continue."
+- No API call made (check terminal - no loading)
+- No results displayed
+
+Status: [ ] PASS  [ ] FAIL  [ ] SKIPPED
+
+
+TEST 6: No Results Query (Optional - 1 minute)
+-----------------------------------------------
+
+1. Search for: "xyzabc123invalidquerytest"
+2. Click "Search"
+
+Expected:
+- Info message: "No results found for 'xyzabc123invalidquerytest'..."
+- No error (graceful handling)
+- App remains functional
+- Can perform new search
+
+Status: [ ] PASS  [ ] FAIL  [ ] SKIPPED
+
+
+TEST 7: Year Range Filter (Optional - 1 minute)
+------------------------------------------------
+
+1. Drag year range slider to 2020-2024
+2. Search for: "covid-19"
+
+Expected:
+- Results only show papers from 2020-2024
+- Year column in table shows 2020-2024
+- Chart shows papers from that range
+
+Status: [ ] PASS  [ ] FAIL  [ ] SKIPPED
+
+
+================================================================================
+BROWSER CONSOLE CHECK (IMPORTANT)
+================================================================================
+
+1. Open Browser Developer Tools (Press F12)
+2. Go to "Console" tab
+3. Look for JavaScript errors
+
+Expected:
+- No red error messages
+- Maybe some Streamlit info messages (OK)
+- No "Failed to fetch" errors
+- No CORS errors
+
+Status: [ ] PASS (no errors)  [ ] FAIL (errors found)
+
+Errors found (if any):
+_____________________________________________________________________________
+_____________________________________________________________________________
+
+
+================================================================================
+FINAL CHECKLIST
+================================================================================
+
+Before proceeding to Docker/deployment, verify:
+
+[ ] TEST 1 (Basic Functionality) - PASSED
+[ ] TEST 2 (Email Configuration) - PASSED
+[ ] TEST 3 (Rate Limiting) - PASSED
+[ ] No Python errors in terminal
+[ ] No JavaScript errors in browser console
+[ ] App loads quickly (< 5 seconds)
+[ ] Searches return results consistently
+[ ] Rate limiting blocks 11th request correctly
+[ ] Rate limit resets after 60 seconds
+[ ] UI is responsive and looks correct
+
+OVERALL MANUAL TESTING STATUS: [ ] PASS  [ ] FAIL
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Issue: App won't start
+Solution:
+- Check if port 8501 is already in use: lsof -i :8501
+- Kill existing process or use different port: streamlit run app.py --server.port=8502
+
+Issue: Module not found errors
+Solution:
+- Activate virtual environment: source venv/bin/activate
+- Reinstall dependencies: pip install -r requirements.txt
+
+Issue: Search always fails
+Solution:
+- Check internet connection
+- Verify OpenAlex API is accessible: curl https://api.openalex.org/works
+- Check terminal for specific error messages
+
+Issue: Rate limiting not working
+Solution:
+- Check browser console (F12) for errors
+- Clear Streamlit cache: streamlit cache clear
+- Restart app
+
+Issue: Environment variable not working
+Solution:
+- Verify it's set: echo $OPENALEX_EMAIL
+- Check .env file if using python-dotenv
+- Restart terminal and re-export variable
+
+
+================================================================================
+REPORTING ISSUES
+================================================================================
+
+If any tests fail, document:
+
+1. Test number that failed: _______
+2. Expected behavior: _______________________________________________________
+3. Actual behavior: _________________________________________________________
+4. Error messages (if any): _________________________________________________
+5. Screenshots (if applicable): Save to project folder
+
+Report to: Development team or create GitHub issue
+
+
+================================================================================
+NEXT STEPS AFTER TESTING
+================================================================================
+
+If all tests PASS:
+✅ Proceed to Docker testing
+✅ Then deploy to Google Cloud Run
+✅ Run production validation tests
+
+If any tests FAIL:
+❌ Document failures above
+❌ Report issues to development team
+❌ Do NOT proceed to deployment until fixed
+
+
+================================================================================
+TEST COMPLETION
+================================================================================
+
+Tested by: _________________________
+Date: _____________________________
+Time started: ______________________
+Time completed: ____________________
+Total duration: ____________________
+
+Signature: _________________________
+
+
+================================================================================
+END OF MANUAL TESTING CHECKLIST
+================================================================================

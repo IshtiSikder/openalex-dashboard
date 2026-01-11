@@ -3,9 +3,62 @@ import pandas as pd
 import plotly.express as px
 from pyalex import Works, config
 import time
+import os
+from datetime import datetime, timedelta
+import hashlib
 
 # Configure PyAlex
-config.email = "your-email@example.com"  # Set your email for polite pool access
+config.email = os.getenv("OPENALEX_EMAIL", "ishtiaksikder@gmail.com")  # Set your email for polite pool access
+
+# Rate limiting configuration
+RATE_LIMIT = 10  # requests per minute
+RATE_WINDOW = 60  # seconds
+
+def get_client_ip():
+    """
+    Get client identifier for rate limiting.
+    Uses session_id as fallback for local testing.
+    """
+    try:
+        if "client_ip" not in st.session_state:
+            # Use session ID hash as identifier
+            session_id = str(id(st.session_state))
+            st.session_state.client_ip = hashlib.md5(session_id.encode()).hexdigest()[:15]
+        return st.session_state.client_ip
+    except Exception:
+        return "local"
+
+def check_rate_limit():
+    """
+    Check if current request exceeds rate limits.
+    Uses st.session_state to persist history across Streamlit reruns.
+    Returns: (allowed: bool, remaining: int, wait_time: int)
+    """
+    # Initialize request history in session state if not exists
+    if "request_history" not in st.session_state:
+        st.session_state.request_history = []
+
+    now = datetime.now()
+    cutoff_time = now - timedelta(seconds=RATE_WINDOW)
+
+    # Clean up old requests
+    st.session_state.request_history = [
+        req_time for req_time in st.session_state.request_history
+        if req_time > cutoff_time
+    ]
+
+    # Count recent requests
+    request_count = len(st.session_state.request_history)
+
+    if request_count >= RATE_LIMIT:
+        # Rate limit exceeded
+        oldest = st.session_state.request_history[0]
+        wait_seconds = int((oldest + timedelta(seconds=RATE_WINDOW) - now).total_seconds())
+        return (False, 0, max(1, wait_seconds))
+
+    # Allow request and record it
+    st.session_state.request_history.append(now)
+    return (True, RATE_LIMIT - request_count - 1, 0)
 
 # Page configuration
 st.set_page_config(
@@ -49,7 +102,12 @@ search_button = st.sidebar.button("🔍 Search", type="primary", use_container_w
 
 # Main content area
 if search_button:
-    if not search_query:
+    # Check rate limit first
+    is_allowed, remaining, wait_time = check_rate_limit()
+
+    if not is_allowed:
+        st.error(f"⚠️ Too many searches! Please wait {wait_time} seconds before trying again.\n\nRate limit: {RATE_LIMIT} searches per minute.")
+    elif not search_query:
         st.warning("⚠️ Please enter a search query to continue.")
     else:
         try:

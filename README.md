@@ -2,6 +2,10 @@
 
 A Streamlit-based interactive dashboard for exploring and visualizing research data from OpenAlex, an open catalog of scholarly papers, authors, institutions, and more.
 
+## Live Demo
+
+**https://openalex-dashboard-l2yut6xcta-uc.a.run.app**
+
 ## Overview
 
 This project provides a web-based dashboard to query and analyze academic research data using the OpenAlex API. Built with Streamlit and designed for deployment on Google Cloud Run.
@@ -56,6 +60,19 @@ streamlit run app.py
 
 The dashboard will be available at `http://localhost:8501`
 
+### Environment Configuration
+
+5. (Optional) Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env and set OPENALEX_EMAIL to your email
+```
+
+For polite pool access to OpenAlex API, set your email:
+```env
+OPENALEX_EMAIL=your-email@example.com
+```
+
 ## Docker Deployment
 
 ### Build the Docker image:
@@ -97,6 +114,33 @@ gcloud run deploy openalex-dashboard \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated
+```
+
+## Environment Variables
+
+| Variable | Default | Purpose | Required |
+|----------|---------|---------|----------|
+| `OPENALEX_EMAIL` | `ishtiaksikder@gmail.com` | Email for OpenAlex polite pool access | No* |
+| `STREAMLIT_SERVER_PORT` | `8080` | Server port (Cloud Run) | No |
+| `STREAMLIT_SERVER_ADDRESS` | `0.0.0.0` | Server address | No |
+| `STREAMLIT_SERVER_HEADLESS` | `true` | Headless mode | No |
+
+*For production use with higher rate limits, configure `OPENALEX_EMAIL`.
+
+### Setting Environment Variables
+
+**Local Development**:
+```bash
+export OPENALEX_EMAIL=your-email@example.com
+streamlit run app.py
+```
+
+**Google Cloud Run**:
+```bash
+gcloud run deploy openalex-dashboard \
+  --image gcr.io/YOUR_PROJECT_ID/openalex-dashboard \
+  --set-env-vars OPENALEX_EMAIL=your-email@example.com \
+  --region us-central1
 ```
 
 ## CI/CD with GitHub Actions
@@ -154,4 +198,4 @@ For questions or feedback, please open an issue on GitHub.
 
 ---
 
-**Status**: 🚧 Under Development
+**Status**: ✅ Live on Google Cloud Run
