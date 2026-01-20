@@ -4,10 +4,9 @@ A Streamlit-based interactive dashboard for exploring and visualizing research d
 
 ## Live Demo
 
-<!-- 
-## https://openalex-dashboard-l2yut6xcta-uc.a.run.app** -->
+**[Launch Dashboard](https://openalex-dashboard-l2yut6xcta-uc.a.run.app)**
 
-[website link](https://youtu.be/8Fey680pHCk?si=TSN3Nbwxp7XiF9e-)
+[Video Demo](https://youtu.be/8Fey680pHCk?si=TSN3Nbwxp7XiF9e-)
 
 
 ## Overview
